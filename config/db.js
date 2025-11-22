@@ -1,30 +1,52 @@
-// Database connection
+// Database connection using Mongoose
 
-const { MongoClient } = require('mongodb'); // FIX: Use MongoClient
+const mongoose = require('mongoose');
 const { MONGODB_URI, NODE_ENV } = require('./env');
 
 const connectDB = async () => {
   try {
-    if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/delivery-app') {
-      console.warn('⚠️  Using default MongoDB URI. Please set MONGODB_URI in .env file');
-    }
-    
+    // Ensure MONGODB_URI is set
     if (!MONGODB_URI) {
       throw new Error('MONGODB_URI is not defined in .env file');
     }
     
+    // Ensure database name is 'zip_shift' in connection string
+    let connectionString = MONGODB_URI.trim();
+    
+    // Parse and set database name properly
+    // Check if URI already has a database name (after last / and before ?)
+    const dbNameMatch = connectionString.match(/mongodb\+?srv?:\/\/[^\/]+\/([^\/\?]+)/);
+    
+    if (!dbNameMatch || dbNameMatch[1] === '') {
+      // No database name found, add 'zip_shift'
+      if (connectionString.includes('?')) {
+        // Insert database name before query params
+        connectionString = connectionString.replace(/\?/, '/zip_shift?');
+      } else if (connectionString.endsWith('/')) {
+        // Remove trailing slash and add database name
+        connectionString = connectionString.replace(/\/$/, '') + '/zip_shift';
+      } else {
+        // Add database name at the end
+        connectionString = connectionString + '/zip_shift';
+      }
+    } else {
+      // Database name exists, but we want to use 'zip_shift'
+      // Replace existing database name with 'zip_shift'
+      connectionString = connectionString.replace(/\/[^\/\?]+(\?|$)/, '/zip_shift$1');
+    }
+    
     console.log(`🔄 Connecting to MongoDB...`);
+    console.log(`📦 Database: zip_shift`);
     
-    // FIX: Use the native MongoDB driver's MongoClient to establish connection
-    const client = new MongoClient(MONGODB_URI);
-    const conn = await client.connect(); 
+    // Connect using Mongoose with explicit database name
+    const conn = await mongoose.connect(connectionString, {
+      dbName: 'zip_shift', // Explicitly set database name
+    });
     
-    // যেহেতু নেটিভ ড্রাইভারের ক্ষেত্রে 'conn.connection.host' মঙ্গুজের মতো সরাসরি পাওয়া যায় না, 
-    // তাই একটি সাধারণ কানেকশন সাকসেস মেসেজ ব্যবহার করা হয়েছে।
-    // অথবা আপনি চাইলে client.options.hosts[0].host বা client.options.srvHost ব্যবহার করতে পারেন।
     console.log(`✅ MongoDB Connected successfully!`);
-
-    // আপনি চাইলে কানেকশন ক্লোজ করার জন্য client.close() ব্যবহার করতে পারেন, তবে সাধারণত সার্ভার বন্ধ না হওয়া পর্যন্ত কানেকশন খোলা রাখা হয়।
+    console.log(`📍 Host: ${conn.connection.host}`);
+    console.log(`🗄️  Database: ${conn.connection.name}`);
+    console.log(`📊 Collections: users, parcels, riders, admin`);
     
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);

@@ -15,15 +15,14 @@ const app = express();
 // CORS Configuration for Frontend Access
 const corsOptions = {
   origin: function (origin, callback) {
-    // In development, allow all localhost origins
+    // In development, allow ALL origins (more permissive)
     if (process.env.NODE_ENV === 'development') {
-      // Allow requests with no origin (like mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-      
-      // Allow all localhost and 127.0.0.1 origins in development
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        return callback(null, true);
-      }
+      return callback(null, true);
+    }
+    
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) {
+      return callback(null, true);
     }
     
     // List of allowed origins for production
@@ -35,17 +34,21 @@ const corsOptions = {
       'http://localhost:8080',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:5174',
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // In production, log but allow for now (you can make it strict later)
+      console.warn(`⚠️  CORS: Request from unknown origin: ${origin}`);
+      callback(null, true); // Allow for now, change to callback(new Error(...)) for strict mode
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 // Middleware
