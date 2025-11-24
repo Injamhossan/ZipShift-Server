@@ -1,5 +1,3 @@
-// Admin actions: assign riders, manage warehouses
-
 const Parcel = require('../models/parcelModel');
 const Rider = require('../models/riderModel');
 const Notification = require('../services/notificationService');

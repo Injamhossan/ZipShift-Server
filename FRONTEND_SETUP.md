@@ -1,105 +1,65 @@
 # Frontend Setup Guide
 
-## API Base URL
+## Environment Variables (Vite)
+
+Create `frontend/.env.local` (never commit):
 ```
-http://localhost:5000/api
+VITE_API_BASE_URL=http://localhost:5000
+VITE_SOCKET_URL=http://localhost:5000
 ```
 
-## Allowed Frontend Origins
-The following frontend URLs are allowed by CORS:
-- `http://localhost:3000` (React default)
-- `http://localhost:3001`
-- `http://localhost:5173` (Vite default)
-- `http://localhost:5174`
-- `http://localhost:8080`
+`src/utils/authApi.js` should read `VITE_API_BASE_URL` when building URLs (append `/api/...`) and always attach the Firebase ID token from your auth store/localStorage.
 
-## API Endpoints
-
-### Parcels
-- `GET /api/parcels` - Get all parcels
-- `GET /api/parcels/:parcelId` - Get parcel by ID
-- `POST /api/parcels` - Create new parcel
-- `PUT /api/parcels/:parcelId/payment` - Update payment status
-- `PUT /api/parcels/:parcelId/assign` - Assign delivery
-
-### Riders
-- `GET /api/riders` - Get all riders
-- `GET /api/riders/:riderId` - Get rider by ID
-- `PUT /api/riders/:riderId/availability` - Update availability
-- `PUT /api/riders/parcels/:parcelId/pickup` - Update pickup status
-- `PUT /api/riders/parcels/:parcelId/delivery` - Update delivery status
-
-### Admin
-- `GET /api/admin/dashboard` - Get dashboard stats
-- `GET /api/admin/parcels` - Get all parcels (admin view)
-- `GET /api/admin/riders` - Get all riders (admin view)
-- `PUT /api/admin/parcels/:parcelId/assign-rider` - Assign rider to parcel
-
-## Frontend Example (React/Axios)
+## Required Headers
 
 ```javascript
-// api.js
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5000/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const authApi = axios.create({
+  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
+  withCredentials: false
 });
 
-// Add token to requests if available
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+authApi.interceptors.request.use((config) => {
+  const token = authStore.user?.token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
-
-export default api;
 ```
 
-## Frontend Example (Fetch API)
+## Dashboard Data Flow
+
+| UI section | REST call | Realtime event |
+|------------|-----------|----------------|
+| Summary cards | `GET /api/dashboard/summary` | `dashboard:summary` |
+| Parcels table | `GET /api/parcels?status=all&page=1` | `parcels:created`, `parcels:updated` |
+| Create parcel form | `POST /api/parcels` | emits both parcel + summary events |
+| Tracking modal | `GET /api/tracking/:trackingId` | — |
+| Billing cards/table | `GET /api/billing` | `billing:payout` |
+| Support form | `POST /api/support/tickets` | `support:ticket-status` |
+| Profile form | `PATCH /api/profile` | — |
+
+## Socket.IO Client
 
 ```javascript
-// Fetch example
-const API_BASE_URL = 'http://localhost:5000/api';
+import { io } from 'socket.io-client';
 
-// Get all parcels
-fetch(`${API_BASE_URL}/parcels`)
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.error(err));
+export const socket = io(import.meta.env.VITE_SOCKET_URL, {
+  auth: { token: authStore.user?.token }
+});
 
-// Create parcel
-fetch(`${API_BASE_URL}/parcels`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}` // if needed
-  },
-  body: JSON.stringify({
-    senderName: 'John Doe',
-    senderPhone: '1234567890',
-    // ... other fields
-  })
-})
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.error(err));
+socket.on('connect_error', (err) => console.error('Socket error', err));
+socket.on('dashboard:summary', dashboardStore.setSummary);
+socket.on('parcels:created', parcelStore.prepend);
+socket.on('parcels:updated', parcelStore.merge);
+socket.on('billing:payout', billingStore.setSnapshot);
+socket.on('support:ticket-status', supportStore.updateTicket);
 ```
 
-## Environment Variables for Frontend
+Initialize the socket in a root provider/context once, then expose derived state with Zustand/Context so individual sections do not create duplicate connections.
 
-Create a `.env` file in your frontend project:
-```
-REACT_APP_API_URL=http://localhost:5000/api
-```
-or for Vite:
-```
-VITE_API_URL=http://localhost:5000/api
-```
+## Common Pitfalls
 
+- **401 errors** → dashboard must send a fresh Firebase ID token; expired tokens will be rejected server-side and by Socket.IO middleware.
+- **Mixed base URLs** → always use `VITE_API_BASE_URL` to build REST paths; never hardcode `localhost`.
+- **Socket blocked** → ensure the frontend origin is included in `SOCKET_CLIENT_ORIGIN` or update `corsOptions` in `app.js`.

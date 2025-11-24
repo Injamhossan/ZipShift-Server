@@ -3,6 +3,19 @@
 const Rider = require('../models/riderModel');
 const Parcel = require('../models/parcelModel');
 const Notification = require('../services/notificationService');
+const { emitSocketEvent } = require('../services/socketService');
+const { buildDashboardSummary } = require('./dashboardController');
+
+const formatParcelEvent = (parcel) => ({
+  id: parcel.id,
+  trackingId: parcel.trackingNumber,
+  status: parcel.status,
+  timeline: parcel.timeline,
+  customerName: parcel.customerName,
+  address: parcel.address,
+  cod: parcel.codAmount || 0,
+  updatedAt: parcel.updatedAt
+});
 
 // Get all riders
 exports.getAllRiders = async (req, res, next) => {
@@ -75,7 +88,7 @@ exports.updatePickupStatus = async (req, res, next) => {
     const { parcelId } = req.params;
     const { status } = req.body;
 
-    const parcel = await Parcel.findById(parcelId);
+    const parcel = await Parcel.findById(parcelId).populate('userId', 'firebaseUid');
     if (!parcel) {
       return res.status(404).json({
         success: false,
@@ -88,6 +101,13 @@ exports.updatePickupStatus = async (req, res, next) => {
 
     // Notify user
     await Notification.sendNotification(parcel.userId, `Parcel ${status}`, parcel);
+
+    const merchantRoom = parcel.userId?.firebaseUid;
+    if (merchantRoom) {
+      emitSocketEvent('parcels:updated', formatParcelEvent(parcel), merchantRoom);
+      const summary = await buildDashboardSummary(parcel.userId._id || parcel.userId);
+      emitSocketEvent('dashboard:summary', summary, merchantRoom);
+    }
 
     res.status(200).json({
       success: true,
@@ -105,7 +125,7 @@ exports.updateDeliveryStatus = async (req, res, next) => {
     const { parcelId } = req.params;
     const { status } = req.body;
 
-    const parcel = await Parcel.findById(parcelId);
+    const parcel = await Parcel.findById(parcelId).populate('userId', 'firebaseUid');
     if (!parcel) {
       return res.status(404).json({
         success: false,
@@ -121,6 +141,13 @@ exports.updateDeliveryStatus = async (req, res, next) => {
 
     // Notify user
     await Notification.sendNotification(parcel.userId, `Parcel ${status}`, parcel);
+
+    const merchantRoom = parcel.userId?.firebaseUid;
+    if (merchantRoom) {
+      emitSocketEvent('parcels:updated', formatParcelEvent(parcel), merchantRoom);
+      const summary = await buildDashboardSummary(parcel.userId._id || parcel.userId);
+      emitSocketEvent('dashboard:summary', summary, merchantRoom);
+    }
 
     res.status(200).json({
       success: true,

@@ -4,6 +4,16 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  firebaseUid: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'firebase'],
+    default: 'local'
+  },
   name: {
     type: String,
     required: true
@@ -16,13 +26,24 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true,
+    default: null
+  },
+  company: {
+    type: String,
+    default: ''
+  },
+  pickupArea: {
+    type: String,
+    default: ''
   },
   password: {
     type: String,
-    required: true,
-    select: false
+    select: false,
+    required: function () {
+      return !this.firebaseUid;
+    }
   },
   address: {
     type: String,

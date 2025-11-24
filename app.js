@@ -9,6 +9,11 @@ const { errorHandler } = require('./middlewares/errorMiddleware');
 const parcelRoutes = require('./routes/parcelRoutes');
 const riderRoutes = require('./routes/riderRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const billingRoutes = require('./routes/billingRoutes');
+const supportRoutes = require('./routes/supportRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const trackingRoutes = require('./routes/trackingRoutes');
 
 const app = express();
 
@@ -102,7 +107,12 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/parcels', parcelRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/riders', riderRoutes);
 app.use('/api/admin', adminRoutes);
 

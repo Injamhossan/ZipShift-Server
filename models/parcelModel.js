@@ -13,53 +13,122 @@ const parcelSchema = new mongoose.Schema({
     ref: 'Rider',
     default: null
   },
-  senderName: {
+  customerName: {
     type: String,
     required: true
   },
-  senderPhone: {
+  customerPhone: {
     type: String,
     required: true
   },
-  senderAddress: {
+  address: {
     type: String,
     required: true
   },
-  recipientName: {
+  pickupArea: {
     type: String,
+    default: ''
+  },
+  weight: {
+    type: Number,
     required: true
   },
-  recipientPhone: {
-    type: String,
-    required: true
+  codAmount: {
+    type: Number,
+    default: 0
   },
-  recipientAddress: {
+  note: {
     type: String,
-    required: true
-  },
-  city: {
-    type: String,
-    required: true
+    default: ''
   },
   status: {
     type: String,
-    enum: ['pending', 'assigned', 'picked-up', 'in-transit', 'out-for-delivery', 'delivered', 'cancelled'],
-    default: 'pending'
+    enum: [
+      'Pending',
+      'Picked',
+      'On the way',
+      'Delivered',
+      'Cancelled',
+      'pending',
+      'assigned',
+      'picked-up',
+      'in-transit',
+      'out-for-delivery',
+      'delivered',
+      'cancelled'
+    ],
+    default: 'Pending'
   },
   paymentStatus: {
     type: String,
     enum: ['pending', 'paid', 'failed'],
     default: 'pending'
   },
+  currentHub: {
+    type: String,
+    default: 'Central Hub'
+  },
+  eta: {
+    type: Date
+  },
+  weightUnit: {
+    type: String,
+    enum: ['kg', 'g', 'lb'],
+    default: 'kg'
+  },
+  timeline: {
+    type: [
+      {
+        label: String,
+        time: {
+          type: Date,
+          default: Date.now
+        },
+        done: {
+          type: Boolean,
+          default: false
+        },
+        location: {
+          type: String,
+          default: ''
+        },
+        status: {
+          type: String,
+          default: 'Pending'
+        }
+      }
+    ],
+    default: []
+  },
   warehouse: {
     type: String,
     default: null
   },
-  weight: {
-    type: Number,
-    required: true
+  senderName: {
+    type: String,
+    default: ''
   },
-  description: {
+  senderPhone: {
+    type: String,
+    default: ''
+  },
+  senderAddress: {
+    type: String,
+    default: ''
+  },
+  recipientName: {
+    type: String,
+    default: ''
+  },
+  recipientPhone: {
+    type: String,
+    default: ''
+  },
+  recipientAddress: {
+    type: String,
+    default: ''
+  },
+  city: {
     type: String,
     default: ''
   },
@@ -77,7 +146,13 @@ const parcelSchema = new mongoose.Schema({
     default: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+parcelSchema.virtual('trackingId').get(function () {
+  return this.trackingNumber;
 });
 
 // Generate tracking number before saving

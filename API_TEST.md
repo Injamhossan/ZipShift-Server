@@ -1,100 +1,136 @@
 # API Test Guide
 
-## Quick Test from Frontend
+All protected routes require the Firebase ID token that the dashboard already issues on login. Replace `zipshift_token` below with wherever you persist the token today.
 
-### 1. Test Server Connection
 ```javascript
-// Test if server is running
-fetch('http://localhost:5000/api/test')
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.error('Error:', err));
+const API_BASE = 'http://localhost:5000/api';
+
+const authFetch = (path, options = {}) => {
+  const token = localStorage.getItem('zipshift_token');
+  return fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {})
+    },
+    ...options
+  }).then(async (res) => {
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.message || 'Request failed');
+    return payload;
+  });
+};
 ```
 
-### 2. Test Health Check
+## Health & Connectivity
+
 ```javascript
-fetch('http://localhost:5000/api/health')
-  .then(res => res.json())
-  .then(data => console.log(data));
+await fetch('http://localhost:5000/api/health').then((r) => r.json());
+await authFetch('/dashboard/summary'); // validates Firebase + DB access
 ```
 
-### 3. Get All Parcels (No Auth Required)
+## Dashboard Summary
+
 ```javascript
-fetch('http://localhost:5000/api/parcels')
-  .then(res => res.json())
-  .then(data => {
-    console.log('Parcels:', data);
-  })
-  .catch(err => console.error('Error:', err));
+const { data } = await authFetch('/dashboard/summary');
+console.log(data.summary.totalShipments, data.billing.walletBalance);
 ```
 
-### 4. Get All Riders (No Auth Required)
+## Parcels
+
+### List with pagination/filter
 ```javascript
-fetch('http://localhost:5000/api/riders')
-  .then(res => res.json())
-  .then(data => {
-    console.log('Riders:', data);
-  })
-  .catch(err => console.error('Error:', err));
+const parcels = await authFetch('/parcels?status=all&page=1&limit=20');
+console.log(parcels.data.results, parcels.data.pagination);
 ```
 
-### 5. Create Parcel (No Auth Required for Testing)
+### Create parcel
 ```javascript
-fetch('http://localhost:5000/api/parcels', {
+await authFetch('/parcels', {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
   body: JSON.stringify({
-    userId: '507f1f77bcf86cd799439011', // Replace with actual user ID
-    senderName: 'John Doe',
-    senderPhone: '1234567890',
-    senderAddress: '123 Main St',
-    recipientName: 'Jane Smith',
-    recipientPhone: '0987654321',
-    recipientAddress: '456 Oak Ave',
-    city: 'Karachi',
-    weight: 2.5,
-    description: 'Test parcel'
+    customerName: 'Jane Smith',
+    customerPhone: '+8801600000000',
+    address: 'House 10, Road 3, Banani, Dhaka',
+    pickupArea: 'Dhaka Hub',
+    weight: 1.2,
+    cod: 1250,
+    note: 'Leave with guard'
   })
-})
-  .then(res => res.json())
-  .then(data => console.log('Created:', data))
-  .catch(err => console.error('Error:', err));
+});
 ```
 
-## Using Axios (Recommended)
+### Parcel details
+```javascript
+const parcel = await authFetch(`/parcels/${parcelId}`);
+console.log(parcel.data.timeline);
+```
+
+## Tracking (Public)
+
+```javascript
+await fetch(`${API_BASE}/tracking/${trackingId}`)
+  .then((r) => r.json())
+  .then((payload) => console.log(payload.data.hub));
+```
+
+## Billing Snapshot
+
+```javascript
+const billing = await authFetch('/billing');
+console.log(billing.data.walletBalance, billing.data.payouts);
+```
+
+## Support Ticket
+
+```javascript
+await authFetch('/support/tickets', {
+  method: 'POST',
+  body: JSON.stringify({
+    subject: 'Need pickup reschedule',
+    details: 'Please move parcel ZIP123 to tomorrow morning.'
+  })
+});
+```
+
+## Profile Update
+
+```javascript
+await authFetch('/profile', {
+  method: 'PATCH',
+  body: JSON.stringify({
+    name: 'Acme Logistics',
+    phone: '+8801888997777',
+    company: 'Acme BD',
+    pickupArea: 'Uttara Warehouse',
+    address: 'Plot 15, Sector 3'
+  })
+});
+```
+
+## Axios Alternative
 
 ```javascript
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api'
+});
 
-// Test connection
-axios.get(`${API_URL}/test`)
-  .then(response => console.log(response.data))
-  .catch(error => console.error('Error:', error));
+api.interceptors.request.use((config) => {
+  config.headers.Authorization = `Bearer ${localStorage.getItem('zipshift_token')}`;
+  return config;
+});
 
-// Get parcels
-axios.get(`${API_URL}/parcels`)
-  .then(response => console.log(response.data))
-  .catch(error => console.error('Error:', error));
+const { data } = await api.get('/parcels', { params: { status: 'Pending', page: 1 } });
 ```
 
-## Common Issues & Solutions
+## Troubleshooting
 
-### Issue: CORS Error
-**Solution:** Make sure server is running and CORS is configured. Check browser console for specific error.
-
-### Issue: Connection Refused
-**Solution:** 
-1. Make sure server is running: `npm run dev`
-2. Check if port 5000 is available
-3. Verify server started successfully
-
-### Issue: 404 Not Found
-**Solution:** Check the API endpoint URL. Should be `http://localhost:5000/api/...`
-
-### Issue: Empty Response
-**Solution:** This is normal if database is empty. Try creating a parcel first.
+| Issue | Fix |
+|-------|-----|
+| `401 Unauthorized` | Token missing/expired or Firebase service-account vars not set on backend |
+| Socket connect error | Ensure `auth.token` sent to Socket.IO and `SOCKET_CLIENT_ORIGIN` includes the frontend origin |
+| Empty dashboard | Seed data via `POST /api/parcels` |
+| 404 on endpoints | Confirm path includes `/api/...` and restart the server after modifying routes |
 

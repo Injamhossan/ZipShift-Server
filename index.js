@@ -3,15 +3,20 @@
 // Load environment variables first
 require('dotenv').config();
 
+const http = require('http');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { PORT, NODE_ENV } = require('./config/env');
+const { initSocket } = require('./services/socketService');
 
 // Connect to database
 connectDB();
 
+const server = http.createServer(app);
+initSocket(server);
+
 // Start server
-const server = app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`\n🚀 Server running in ${NODE_ENV} mode`);
   console.log(`📍 Server URL: http://localhost:${PORT}`);
   console.log(`🌐 API Base URL: http://localhost:${PORT}/api`);

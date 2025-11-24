@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const { AppError } = require('./errorMiddleware');
 const { JWT_SECRET } = require('../config/env'); 
+const { getFirebaseAdmin } = require('../services/firebaseAdmin');
 
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
@@ -21,23 +22,34 @@ exports.protect = async (req, res, next) => {
   }
 
   try {
-    // Verify token
-    if (!JWT_SECRET) {
-      return next(new AppError('JWT_SECRET is not configured', 500));
-    }
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = await User.findById(decoded.id);
+    const firebaseAdmin = getFirebaseAdmin();
 
-    if (!req.user) {
-      // If user is not found after token verification, treat as 401
-      return next(new AppError('User belonging to this token no longer exists', 401));
+    if (!firebaseAdmin) {
+      return next(new AppError('Firebase credentials are not configured', 500));
     }
+
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+
+    let user = await User.findOne({ firebaseUid: decoded.uid });
+    if (!user) {
+      const fallbackEmail = decoded.email || `${decoded.uid}@zipshift.app`;
+      user = await User.create({
+        firebaseUid: decoded.uid,
+        authProvider: 'firebase',
+        name: decoded.name || 'ZipShift Merchant',
+        email: fallbackEmail,
+        phone: decoded.phone_number || null
+      });
+    }
+
+    req.user = user;
+    req.auth = {
+      firebase: decoded
+    };
 
     next();
   } catch (error) {
-    // FIX: Any error thrown during jwt.verify() (JsonWebTokenError, TokenExpiredError) 
-    // or database lookup is now passed to the global error handler (errorMiddleware.js).
-    next(error);
+    next(new AppError(error.message || 'Not authorized to access this route', 401));
   }
 };
 
