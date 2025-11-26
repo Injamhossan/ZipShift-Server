@@ -107,6 +107,9 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+const authRoutes = require('./routes/authRoutes');
+
+app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/parcels', parcelRoutes);
 app.use('/api/tracking', trackingRoutes);

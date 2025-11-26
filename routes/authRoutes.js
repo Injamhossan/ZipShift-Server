@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getDashboardSummary } = require('../controllers/dashboardController');
+const { register, login } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
-router.get('/summary', protect, getDashboardSummary);
+router.post('/register', protect, register);
+router.post('/login', protect, login);
 
 module.exports = router;
-
-
-

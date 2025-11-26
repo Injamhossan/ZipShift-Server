@@ -52,3 +52,5 @@ supportTicketSchema.pre('save', function (next) {
 
 module.exports = mongoose.model('SupportTicket', supportTicketSchema);
 
+
+

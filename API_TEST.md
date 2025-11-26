@@ -22,6 +22,37 @@ const authFetch = (path, options = {}) => {
 };
 ```
 
+## Registration (New)
+
+### Register as Merchant (User)
+```javascript
+await authFetch('/auth/register', {
+  method: 'POST',
+  body: JSON.stringify({
+    role: 'user',
+    company: 'My Delivery Co',
+    address: '123 Main St',
+    city: 'Dhaka',
+    pickupArea: 'Gulshan'
+  })
+});
+```
+
+### Register as Rider
+```javascript
+await authFetch('/auth/register', {
+  method: 'POST',
+  body: JSON.stringify({
+    role: 'rider',
+    vehicleType: 'bike',
+    vehicleNumber: 'DHAKA-METRO-HA-12-3456',
+    licenseNumber: 'DL-12345678',
+    name: 'Rider Name', // Optional if in Firebase token
+    phone: '+8801700000000' // Optional if in Firebase token
+  })
+});
+```
+
 ## Health & Connectivity
 
 ```javascript
@@ -133,4 +164,5 @@ const { data } = await api.get('/parcels', { params: { status: 'Pending', page: 
 | Socket connect error | Ensure `auth.token` sent to Socket.IO and `SOCKET_CLIENT_ORIGIN` includes the frontend origin |
 | Empty dashboard | Seed data via `POST /api/parcels` |
 | 404 on endpoints | Confirm path includes `/api/...` and restart the server after modifying routes |
+
 

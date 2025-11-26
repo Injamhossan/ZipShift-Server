@@ -12,6 +12,11 @@ const riderSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  firebaseUid: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   phone: {
     type: String,
     required: true,
