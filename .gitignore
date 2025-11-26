@@ -3,7 +3,7 @@ node_modules/
 
 # Environment variables
 .env
-
+firebase-adminsdk.json
 # Logs
 logs
 *.log
@@ -24,5 +24,4 @@ dist/
 build/
 
 
-firebase-adminsdk.json
 
