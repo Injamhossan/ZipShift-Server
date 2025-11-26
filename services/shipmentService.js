@@ -6,7 +6,7 @@ const ShipmentService = {
   // Determine warehouse based on city
   async assignWarehouse(city) {
     try {
-      // In production, use a mapping of cities to warehouses
+       
       const warehouseMap = {
         'karachi': 'WH-KHI-001',
         'lahore': 'WH-LHR-001',
