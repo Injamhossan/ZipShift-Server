@@ -9,6 +9,21 @@ const path = require('path');
 const DEFAULT_FIREBASE_SDK_PATH = path.join(__dirname, '..', 'firebase-adminsdk.json');
 
 const parseFirebaseSdk = () => {
+  // Check for Base64 encoded service key (Highest Priority)
+  if (process.env.FIREBASE_SERVICE_KEY) {
+    try {
+      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_KEY, "base64").toString("utf8");
+      const parsed = JSON.parse(decoded);
+      return {
+        projectId: parsed.projectId || parsed.project_id,
+        clientEmail: parsed.clientEmail || parsed.client_email,
+        privateKey: parsed.privateKey || parsed.private_key
+      };
+    } catch (error) {
+      console.warn('⚠️  Failed to parse base64 FIREBASE_SERVICE_KEY. Will try other methods.', error.message);
+    }
+  }
+
   const inline = process.env.FIREBASE_SDK || process.env.firebase_SDK;
   if (inline) {
     try {
