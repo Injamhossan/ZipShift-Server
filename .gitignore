@@ -24,4 +24,5 @@ dist/
 build/
 
 
-/firebase-adminsdk.json
+firebase-adminsdk.json
+
