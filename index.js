@@ -7,13 +7,12 @@ const http = require('http');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { PORT, NODE_ENV } = require('./config/env');
-const { initSocket } = require('./services/socketService');
-
-// Connect to database
-connectDB();
-
 const server = http.createServer(app);
-initSocket(server);
+// Socket.IO removed
+
+
+// Connect to Database
+connectDB();
 
 // Start server
 server.listen(PORT, () => {

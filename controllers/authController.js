@@ -158,6 +158,16 @@ exports.login = async (req, res) => {
     console.log('🔓 Auth Controller: Login called');
     // The user is already attached to req by authMiddleware
     const user = req.user;
+    
+    if (!user) {
+      console.log('❌ User not found in DB during login');
+      return res.status(404).json({
+        success: false,
+        message: 'User not registered',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
     console.log('👤 User logged in:', user._id);
 
     // Update last login if you want to track it (optional)
@@ -173,6 +183,42 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Auth Controller Login Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get current logged in user
+// @route   GET /api/auth/me
+// @access  Private
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Ensure role is present
+    const finalRole = user.role || (user.vehicleNumber ? 'rider' : 'user');
+    const userResponse = user.toObject ? user.toObject() : user;
+    userResponse.role = finalRole;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: userResponse,
+        role: finalRole
+      }
+    });
+  } catch (error) {
+    console.error('❌ Auth Controller GetCurrentUser Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Server Error',

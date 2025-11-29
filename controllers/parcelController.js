@@ -1,54 +1,24 @@
 // Handle parcel creation, payment status, delivery assignment
 
 const Parcel = require('../models/parcelModel');
+const Rider = require('../models/riderModel');
 const Payment = require('../services/paymentService');
 const Notification = require('../services/notificationService');
 const Billing = require('../models/billingModel');
 const { AppError } = require('../middlewares/errorMiddleware');
-const { emitSocketEvent } = require('../services/socketService');
-const { buildDashboardSummary } = require('./dashboardController');
-
-const buildTimelineSeed = (pickupArea) => ([
-  {
-    label: 'Pickup scheduled',
-    status: 'Pending',
-    done: true,
-    location: pickupArea || 'Warehouse',
-    time: new Date()
-  },
-  {
-    label: 'Parcel in transit',
-    status: 'On the way',
-    done: false,
-    location: 'Sorting facility',
-    time: new Date()
-  },
-  {
-    label: 'Out for delivery',
-    status: 'On the way',
-    done: false,
-    location: 'Destination hub',
-    time: new Date()
-  },
-  {
-    label: 'Delivered',
-    status: 'Delivered',
-    done: false,
-    location: 'Recipient address',
-    time: new Date()
-  }
-]);
 
 const sanitizeParcel = (parcelDoc) => ({
   id: parcelDoc.id,
   trackingId: parcelDoc.trackingNumber,
-  customerName: parcelDoc.customerName,
-  customerPhone: parcelDoc.customerPhone,
-  address: parcelDoc.address,
+  senderInfo: parcelDoc.senderInfo,
+  receiverInfo: parcelDoc.receiverInfo,
+  parcelType: parcelDoc.parcelType,
   weight: parcelDoc.weight,
-  cod: parcelDoc.codAmount || 0,
+  cost: parcelDoc.cost,
   status: parcelDoc.status,
-  timeline: parcelDoc.timeline,
+  paymentStatus: parcelDoc.paymentStatus,
+  pickupRiderId: parcelDoc.pickupRiderId,
+  deliveryRiderId: parcelDoc.deliveryRiderId,
   createdAt: parcelDoc.createdAt,
   updatedAt: parcelDoc.updatedAt
 });
@@ -57,69 +27,28 @@ const sanitizeParcel = (parcelDoc) => ({
 exports.createParcel = async (req, res, next) => {
   try {
     const {
-      customerName,
-      customerPhone,
-      address,
+      senderInfo,
+      receiverInfo,
+      parcelType,
       weight,
-      cod = 0,
-      note = '',
-      pickupArea = ''
+      cost
     } = req.body;
 
-    if (!customerName || !customerPhone || !address || !weight) {
-      throw new AppError('customerName, customerPhone, address and weight are required', 400);
+    if (!senderInfo || !receiverInfo || !cost) {
+      throw new AppError('Sender info, receiver info, and cost are required', 400);
     }
 
     const parcelPayload = {
       userId: req.user._id,
-      customerName,
-      customerPhone,
-      address,
+      senderInfo,
+      receiverInfo,
+      parcelType,
       weight,
-      codAmount: cod,
-      note,
-      pickupArea,
-      status: 'Pending',
-      timeline: buildTimelineSeed(pickupArea),
-      senderName: req.user.name,
-      senderPhone: req.user.phone || '',
-      senderAddress: req.user.address || '',
-      recipientName: customerName,
-      recipientPhone: customerPhone,
-      recipientAddress: address,
-      city: pickupArea || req.user.city || ''
+      cost,
+      status: 'unpaid'
     };
 
     const parcel = await Parcel.create(parcelPayload);
-
-    const billingSnapshot = await Billing.findOneAndUpdate(
-      { userId: req.user._id },
-      {
-        $inc: { pendingCod: cod || 0 },
-        $setOnInsert: {
-          walletBalance: 0,
-          lastPayout: {
-            amount: 0
-          }
-        }
-      },
-      { upsert: true, new: true }
-    );
-
-    emitSocketEvent('parcels:created', sanitizeParcel(parcel), req.auth?.firebase?.uid);
-    emitSocketEvent(
-      'billing:payout',
-      {
-        walletBalance: billingSnapshot.walletBalance,
-        pendingCod: billingSnapshot.pendingCod,
-        lastPayout: billingSnapshot.lastPayout,
-        payouts: billingSnapshot.payouts
-      },
-      req.auth?.firebase?.uid
-    );
-
-    const summary = await buildDashboardSummary(req.user._id);
-    emitSocketEvent('dashboard:summary', summary, req.auth?.firebase?.uid);
 
     res.status(201).json({
       success: true,
@@ -127,7 +56,6 @@ exports.createParcel = async (req, res, next) => {
       message: 'Parcel created successfully'
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -138,24 +66,19 @@ exports.updatePaymentStatus = async (req, res, next) => {
     const { parcelId } = req.params;
     const { paymentStatus } = req.body;
 
-    const parcel = await Parcel.findOne({ _id: parcelId, userId: req.user._id });
+    const parcel = await Parcel.findOne({ _id: parcelId });
     if (!parcel) {
       throw new AppError('Parcel not found', 404);
     }
 
-    // Process payment
-    const paymentResult = await Payment.processPayment(parcel, paymentStatus);
+    // Process payment logic here if needed (e.g., verify with Stripe)
+    // For now, just update the status
     
     parcel.paymentStatus = paymentStatus;
+    if (paymentStatus === 'paid') {
+        parcel.status = 'paid'; // Move to paid status
+    }
     await parcel.save();
-
-    // Send notification
-    await Notification.sendNotification(parcel.userId, 'Payment status updated', parcel);
-
-    emitSocketEvent('parcels:updated', sanitizeParcel(parcel), req.auth?.firebase?.uid);
-
-    const summary = await buildDashboardSummary(req.user._id);
-    emitSocketEvent('dashboard:summary', summary, req.auth?.firebase?.uid);
 
     res.status(200).json({
       success: true,
@@ -163,48 +86,109 @@ exports.updatePaymentStatus = async (req, res, next) => {
       message: 'Payment status updated'
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
 
-// Assign delivery to rider
-exports.assignDelivery = async (req, res, next) => {
+// Assign rider (Pickup or Delivery)
+exports.assignRider = async (req, res, next) => {
   try {
     const { parcelId } = req.params;
-    const { riderId } = req.body;
+    const { riderId, type } = req.body; // type: 'pickup' or 'delivery'
 
-    const parcel = await Parcel.findOne({ _id: parcelId, userId: req.user._id });
+    const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
       throw new AppError('Parcel not found', 404);
     }
 
-    parcel.riderId = riderId;
-    parcel.status = 'On the way';
+    const rider = await Rider.findById(riderId);
+    if (!rider) {
+        throw new AppError('Rider not found', 404);
+    }
+
+    if (type === 'pickup') {
+        parcel.pickupRiderId = riderId;
+        parcel.status = 'ready-to-pickup';
+    } else if (type === 'delivery') {
+        parcel.deliveryRiderId = riderId;
+        parcel.status = 'ready-for-delivery';
+    } else {
+        throw new AppError('Invalid assignment type', 400);
+    }
+
     await parcel.save();
 
     // Notify rider
-    await Notification.sendNotification(riderId, 'New delivery assigned', parcel);
-
-    emitSocketEvent('parcels:updated', sanitizeParcel(parcel));
+    // await Notification.sendNotification(riderId, 'New task assigned', parcel);
 
     res.status(200).json({
       success: true,
       data: sanitizeParcel(parcel),
-      message: 'Delivery assignment updated'
+      message: 'Rider assigned successfully'
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
+};
+
+// Update Parcel Status
+exports.updateParcelStatus = async (req, res, next) => {
+    try {
+        const { parcelId } = req.params;
+        const { status } = req.body;
+
+        const parcel = await Parcel.findById(parcelId);
+        if (!parcel) {
+            throw new AppError('Parcel not found', 404);
+        }
+
+        // Add validation logic for status transitions if needed
+        parcel.status = status;
+        
+        // If delivered, update deliveredAt
+        if (status === 'delivered') {
+            // Update rider earnings
+            if (parcel.deliveryRiderId) {
+                await Rider.findByIdAndUpdate(parcel.deliveryRiderId, { $inc: { earnings: 20, totalDeliveries: 1 } });
+            }
+        } else if (status === 'in-transit' || status === 'reached-service-center') {
+             if (parcel.pickupRiderId && status === 'in-transit') {
+                 // Maybe update pickup rider earnings here if they dropped it off?
+                 // Requirement says: "Rider Earning will be increased by 20" on pickup confirm.
+                 // Pickup confirm -> status 'in-transit' (if diff centers) or 'ready-for-delivery' (if same)
+                  await Rider.findByIdAndUpdate(parcel.pickupRiderId, { $inc: { earnings: 20, totalDeliveries: 1 } });
+             }
+        }
+
+        await parcel.save();
+
+        res.status(200).json({
+            success: true,
+            data: sanitizeParcel(parcel),
+            message: 'Parcel status updated'
+        });
+
+    } catch (error) {
+        next(error);
+    }
 };
 
 // Get parcel by ID
 exports.getParcel = async (req, res, next) => {
   try {
     const { parcelId } = req.params;
-    const parcel = await Parcel.findOne({ _id: parcelId, userId: req.user._id })
-      .populate('userId riderId');
+    let query = { _id: parcelId };
+
+    // If user is not admin, ensure they own the parcel or are assigned to it
+    if (req.user.role === 'user') {
+        query.userId = req.user._id;
+    } else if (req.user.role === 'rider') {
+        // Rider can see if assigned
+        query.$or = [{ pickupRiderId: req.user._id }, { deliveryRiderId: req.user._id }];
+    }
+
+    const parcel = await Parcel.findOne(query)
+      .populate('userId pickupRiderId deliveryRiderId');
     
     if (!parcel) {
       throw new AppError('Parcel not found', 404);
@@ -216,7 +200,6 @@ exports.getParcel = async (req, res, next) => {
       message: 'Parcel fetched successfully'
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -227,12 +210,30 @@ exports.getAllParcels = async (req, res, next) => {
     const {
       status = 'all',
       page = 1,
-      limit = 10
+      limit = 10,
+      search
     } = req.query;
 
-    const filters = { userId: req.user._id };
+    let filters = {};
+
+    // Role-based filtering
+    if (req.user.role === 'user') {
+        filters.userId = req.user._id;
+    } else if (req.user.role === 'rider') {
+        filters.$or = [{ pickupRiderId: req.user._id }, { deliveryRiderId: req.user._id }];
+    }
+    // Admin sees all by default
+
     if (status !== 'all') {
       filters.status = status;
+    }
+
+    if (search) {
+        filters.$or = [
+            { 'senderInfo.contact': { $regex: search, $options: 'i' } },
+            { 'receiverInfo.contact': { $regex: search, $options: 'i' } },
+            { trackingNumber: { $regex: search, $options: 'i' } }
+        ];
     }
 
     const parsedPage = parseInt(page, 10) || 1;
@@ -242,7 +243,8 @@ exports.getAllParcels = async (req, res, next) => {
       Parcel.find(filters)
         .sort({ createdAt: -1 })
         .skip((parsedPage - 1) * parsedLimit)
-        .limit(parsedLimit),
+        .limit(parsedLimit)
+        .populate('userId pickupRiderId deliveryRiderId'),
       Parcel.countDocuments(filters)
     ]);
 
@@ -260,7 +262,6 @@ exports.getAllParcels = async (req, res, next) => {
       message: 'Parcels fetched successfully'
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };

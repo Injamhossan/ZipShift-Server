@@ -5,7 +5,8 @@ const router = express.Router();
 const {
   createParcel,
   updatePaymentStatus,
-  assignDelivery,
+  assignRider,
+  updateParcelStatus,
   getParcel,
   getAllParcels
 } = require('../controllers/parcelController');
@@ -17,7 +18,8 @@ router.get('/', getAllParcels);
 router.get('/:parcelId', getParcel);
 router.post('/', createParcel);
 router.put('/:parcelId/payment', updatePaymentStatus);
-router.put('/:parcelId/assign', assignDelivery);
+router.put('/:parcelId/assign', assignRider);
+router.put('/:parcelId/status', updateParcelStatus);
 
 module.exports = router;
 

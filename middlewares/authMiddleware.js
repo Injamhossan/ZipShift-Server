@@ -55,6 +55,9 @@ exports.protect = async (req, res, next) => {
       if (req.originalUrl.includes('/api/auth/register') && req.method === 'POST') {
         console.log('👤 User not found in DB, proceeding to registration...');
         req.user = null; // Explicitly set to null for controller to handle
+      } else if (req.originalUrl.includes('/api/auth/login') && req.method === 'POST') {
+        console.log('👤 User not found in DB, proceeding to login (will return 404/UserNotFound)...');
+        req.user = null;
       } else {
         console.log('❌ User not found in DB and not registering. URL:', req.originalUrl);
         return next(new AppError('User not registered. Please complete registration.', 401));

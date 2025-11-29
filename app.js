@@ -14,6 +14,8 @@ const billingRoutes = require('./routes/billingRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 const app = express();
 
@@ -117,7 +119,9 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/riders', riderRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Handle 404 - must be before error handler
 app.use((req, res) => {

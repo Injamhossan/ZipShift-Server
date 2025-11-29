@@ -1,6 +1,6 @@
+// Support Controller
 const SupportTicket = require('../models/supportTicketModel');
 const { AppError } = require('../middlewares/errorMiddleware');
-const { emitSocketEvent } = require('../services/socketService');
 
 exports.createSupportTicket = async (req, res, next) => {
   try {
@@ -16,15 +16,6 @@ exports.createSupportTicket = async (req, res, next) => {
       details
     });
 
-    emitSocketEvent(
-      'support:ticket-status',
-      {
-        ticketNumber: ticket.ticketNumber,
-        status: ticket.status
-      },
-      req.auth?.firebase?.uid
-    );
-
     res.status(201).json({
       success: true,
       data: ticket,
@@ -34,6 +25,3 @@ exports.createSupportTicket = async (req, res, next) => {
     next(error);
   }
 };
-
-
-

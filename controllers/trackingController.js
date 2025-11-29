@@ -1,51 +1,52 @@
+const Tracking = require('../models/trackingModel');
 const Parcel = require('../models/parcelModel');
 const { AppError } = require('../middlewares/errorMiddleware');
 
-const buildTrackingPayload = (parcel) => ({
-  trackingId: parcel.trackingNumber,
-  status: parcel.status,
-  hub: {
-    name: parcel.currentHub || 'Central Hub',
-    address: parcel.warehouse || 'Processing facility',
-    eta: parcel.eta || parcel.deliveredAt || null
-  },
-  eta: parcel.eta || parcel.deliveredAt || null,
-  rider: parcel.riderId ? {
-    id: parcel.riderId.id,
-    name: parcel.riderId.name,
-    phone: parcel.riderId.phone
-  } : null,
-  customer: {
-    name: parcel.customerName,
-    phone: parcel.customerPhone,
-    address: parcel.address
-  },
-  timeline: parcel.timeline
-});
-
+// Get tracking info by tracking ID (public or private)
 exports.getTrackingInfo = async (req, res, next) => {
   try {
     const { trackingId } = req.params;
-    const parcel = await Parcel.findOne({
-      $or: [
-        { trackingNumber: trackingId },
-        { _id: trackingId }
-      ]
-    }).populate('riderId', 'name phone');
+
+    const parcel = await Parcel.findOne({ trackingNumber: trackingId })
+      .populate('userId', 'name')
+      .populate('pickupRiderId', 'name phone')
+      .populate('deliveryRiderId', 'name phone');
 
     if (!parcel) {
-      throw new AppError('Tracking ID not found', 404);
+      throw new AppError('Parcel not found', 404);
     }
 
-    res.json({
+    const history = await Tracking.find({ parcelId: parcel._id }).sort({ timestamp: -1 });
+
+    res.status(200).json({
       success: true,
-      data: buildTrackingPayload(parcel),
-      message: 'Tracking data fetched'
+      data: {
+        parcel: {
+            trackingId: parcel.trackingNumber,
+            status: parcel.status,
+            sender: parcel.senderInfo.name,
+            receiver: parcel.receiverInfo.name,
+            currentLocation: history[0]?.location || '',
+            lastUpdate: history[0]?.timestamp || parcel.updatedAt
+        },
+        history
+      }
     });
   } catch (error) {
     next(error);
   }
 };
 
-
-
+// Internal helper to create tracking update
+exports.createTrackingUpdate = async (parcelId, status, message, location = '') => {
+    try {
+        await Tracking.create({
+            parcelId,
+            status,
+            message,
+            location
+        });
+    } catch (error) {
+        console.error('Failed to create tracking update:', error);
+    }
+};

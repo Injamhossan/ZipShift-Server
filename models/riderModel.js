@@ -62,6 +62,10 @@ const riderSchema = new mongoose.Schema({
   totalDeliveries: {
     type: Number,
     default: 0
+  },
+  earnings: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

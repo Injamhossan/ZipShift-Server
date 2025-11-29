@@ -3,7 +3,7 @@
 const Rider = require('../models/riderModel');
 const Parcel = require('../models/parcelModel');
 const Notification = require('../services/notificationService');
-const { emitSocketEvent } = require('../services/socketService');
+const { getDashboardSummary } = require('./dashboardController');
 const { buildDashboardSummary } = require('./dashboardController');
 
 const formatParcelEvent = (parcel) => ({
@@ -27,7 +27,6 @@ exports.getAllRiders = async (req, res, next) => {
       data: riders
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -50,7 +49,6 @@ exports.getRider = async (req, res, next) => {
       data: rider
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -77,7 +75,6 @@ exports.updateAvailability = async (req, res, next) => {
       data: rider
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -102,19 +99,11 @@ exports.updatePickupStatus = async (req, res, next) => {
     // Notify user
     await Notification.sendNotification(parcel.userId, `Parcel ${status}`, parcel);
 
-    const merchantRoom = parcel.userId?.firebaseUid;
-    if (merchantRoom) {
-      emitSocketEvent('parcels:updated', formatParcelEvent(parcel), merchantRoom);
-      const summary = await buildDashboardSummary(parcel.userId._id || parcel.userId);
-      emitSocketEvent('dashboard:summary', summary, merchantRoom);
-    }
-
     res.status(200).json({
       success: true,
       data: parcel
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -142,19 +131,11 @@ exports.updateDeliveryStatus = async (req, res, next) => {
     // Notify user
     await Notification.sendNotification(parcel.userId, `Parcel ${status}`, parcel);
 
-    const merchantRoom = parcel.userId?.firebaseUid;
-    if (merchantRoom) {
-      emitSocketEvent('parcels:updated', formatParcelEvent(parcel), merchantRoom);
-      const summary = await buildDashboardSummary(parcel.userId._id || parcel.userId);
-      emitSocketEvent('dashboard:summary', summary, merchantRoom);
-    }
-
     res.status(200).json({
       success: true,
       data: parcel
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
@@ -171,7 +152,6 @@ exports.getRiderParcels = async (req, res, next) => {
       data: parcels
     });
   } catch (error) {
-    // FIX: Pass error to global handler
     next(error);
   }
 };
