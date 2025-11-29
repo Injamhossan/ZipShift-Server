@@ -86,8 +86,8 @@ parcelSchema.virtual('trackingId').get(function () {
   return this.trackingNumber;
 });
 
-// Generate tracking number before saving
-parcelSchema.pre('save', async function(next) {
+// Generate tracking number before validation
+parcelSchema.pre('validate', async function(next) {
   if (!this.trackingNumber) {
     this.trackingNumber = `ZIP${Date.now()}${Math.floor(Math.random() * 1000)}`;
   }
