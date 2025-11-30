@@ -35,6 +35,18 @@ const riderSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  company: {
+    type: String,
+    default: ''
+  },
+  address: {
+    type: String,
+    default: ''
+  },
+  pickupArea: {
+    type: String,
+    default: ''
+  },
   isAvailable: {
     type: Boolean,
     default: true

@@ -2,14 +2,17 @@ const Stripe = require('stripe');
 const Parcel = require('../models/parcelModel');
 
 // Initialize Stripe with secret key from env
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = Stripe(process.env.STRIPE_PAY);
 
 // Create Payment Intent
 exports.createPaymentIntent = async (req, res) => {
   try {
     const { amount, parcelId } = req.body;
 
+    console.log('Creating payment intent for:', { amount, parcelId });
+
     if (!amount || !parcelId) {
+      console.error('Missing amount or parcelId');
       return res.status(400).json({
         success: false,
         message: 'Amount and Parcel ID are required'
@@ -67,12 +70,7 @@ exports.confirmPayment = async (req, res) => {
         parcelId || paymentIntent.metadata.parcelId,
         {
           paymentStatus: 'paid',
-          status: 'out-for-delivery', // Or 'assigned' depending on exact flow, but 'out-for-delivery' implies moving.
-          // If we want to be safer, maybe 'assigned' is better if it needs a rider first?
-          // But user said "delivery stage". Let's stick to 'out-for-delivery' or 'in-transit'.
-          // Actually, looking at the enum: 'Pending', 'Picked', 'On the way', 'Delivered'.
-          // 'out-for-delivery' is also in the enum list (lower case).
-          // Let's use 'out-for-delivery'.
+          status: 'ready-for-delivery', 
         },
         { new: true }
       );

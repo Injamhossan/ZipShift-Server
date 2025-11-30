@@ -3,9 +3,13 @@ const { AppError } = require('../middlewares/errorMiddleware');
 
 const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea'];
 
+const Rider = require('../models/riderModel');
+
 exports.updateProfile = async (req, res, next) => {
   try {
     const updates = {};
+    const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea', 'vehicleType', 'vehicleNumber', 'licenseNumber'];
+    
     ALLOWED_FIELDS.forEach((field) => {
       if (typeof req.body[field] !== 'undefined') {
         updates[field] = req.body[field];
@@ -16,11 +20,23 @@ exports.updateProfile = async (req, res, next) => {
       throw new AppError('No valid profile fields provided', 400);
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      updates,
-      { new: true, runValidators: true }
-    ).select('-password');
+    let updatedUser;
+    if (req.user.role === 'rider' || req.user instanceof Rider) {
+        updatedUser = await Rider.findByIdAndUpdate(
+            req.user._id,
+            updates,
+            { new: true, runValidators: true }
+        ).select('-password');
+        // Ensure role is present
+        if (updatedUser) updatedUser = { ...updatedUser.toObject(), role: 'rider' };
+    } else {
+        updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            updates,
+            { new: true, runValidators: true }
+        ).select('-password');
+        if (updatedUser) updatedUser = { ...updatedUser.toObject(), role: 'user' };
+    }
 
     res.json({
       success: true,

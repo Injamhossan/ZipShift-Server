@@ -228,6 +228,10 @@ exports.getAllParcels = async (req, res, next) => {
       filters.status = status;
     }
 
+    if (req.query.paymentStatus) {
+        filters.paymentStatus = req.query.paymentStatus;
+    }
+
     if (search) {
         filters.$or = [
             { 'senderInfo.contact': { $regex: search, $options: 'i' } },
