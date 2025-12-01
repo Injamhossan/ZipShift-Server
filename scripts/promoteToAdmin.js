@@ -1,11 +1,14 @@
 const mongoose = require('mongoose');
 const User = require('../models/userModel');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const envPath = path.join(__dirname, '../.env');
+require('dotenv').config({ path: envPath });
 
+console.log('Loading .env from:', envPath);
+console.log('MONGO_URI is:', process.env.MONGODB_URI ? 'Defined' : 'Undefined');
 const promoteToAdmin = async (email) => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
     const user = await User.findOne({ email });

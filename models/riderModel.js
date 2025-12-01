@@ -47,6 +47,10 @@ const riderSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  photoURL: {
+    type: String,
+    default: ''
+  },
   isAvailable: {
     type: Boolean,
     default: true

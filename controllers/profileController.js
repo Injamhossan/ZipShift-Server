@@ -1,14 +1,14 @@
 const User = require('../models/userModel');
 const { AppError } = require('../middlewares/errorMiddleware');
 
-const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea'];
+const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea', 'photoURL'];
 
 const Rider = require('../models/riderModel');
 
 exports.updateProfile = async (req, res, next) => {
   try {
     const updates = {};
-    const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea', 'vehicleType', 'vehicleNumber', 'licenseNumber'];
+    const ALLOWED_FIELDS = ['name', 'phone', 'company', 'address', 'pickupArea', 'vehicleType', 'vehicleNumber', 'licenseNumber', 'photoURL'];
     
     ALLOWED_FIELDS.forEach((field) => {
       if (typeof req.body[field] !== 'undefined') {
