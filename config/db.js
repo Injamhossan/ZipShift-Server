@@ -38,7 +38,7 @@ const connectDB = async () => {
     console.log(`🔄 Connecting to MongoDB...`);
     console.log(`📦 Database: zip_shift`);
     
-    // Connect using Mongoose with explicit database name
+
     const conn = await mongoose.connect(connectionString, {
       dbName: 'zip_shift', // Explicitly set database name
     });
