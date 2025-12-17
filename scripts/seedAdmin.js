@@ -9,7 +9,7 @@ async function seedAdmin() {
   try {
     // 1. Connect to MongoDB
     console.log('🔌 Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, { dbName: 'zip_shift' });
     console.log('✅ Connected to MongoDB');
 
     // 2. Initialize Firebase Admin
@@ -19,7 +19,7 @@ async function seedAdmin() {
       throw new Error('Failed to initialize Firebase Admin. Check your .env credentials.');
     }
 
-    const email = 'admin@gmail.com'; // As requested by user
+    const email = 'admin@zipshift.com';
     const password = 'admin123';
     let firebaseUid;
 

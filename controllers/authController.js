@@ -142,9 +142,29 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Auth Controller Register Error:', error.message);
+    
+    // Handle Duplicate Key Errors (MongoDB)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        success: false,
+        message: `Account with this ${field} already exists.`,
+        error: `Duplicate ${field}`
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', '),
+        error: 'Validation Error'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Server Error',
+      message: 'Server Error: ' + error.message,
       error: error.message
     });
   }
